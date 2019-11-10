@@ -27,7 +27,7 @@ export class MarketDataProvider {
   private marketHistory: model.MarketHistory;
 
   private get marketTickerName(): string {
-    return this.userDataProvider.currentNetwork.marketTickerName || 'ARK';
+    return this.userDataProvider.currentNetwork.marketTickerName || 'T69';
   }
 
   constructor(
@@ -81,14 +81,14 @@ export class MarketDataProvider {
     }).join(',');
 
     return this.http.get(url + currenciesList).map((response) => {
-      const json = response['RAW'][this.marketTickerName] || response['RAW'][this.marketTickerName.toUpperCase()];
-      const tickerObject = {
-        symbol: json['BTC']['FROMSYMBOL'],
-        currencies: json,
-      };
+      // const json = response['RAW'][this.marketTickerName] || response['RAW'][this.marketTickerName.toUpperCase()];
+      // const tickerObject = {
+      //   symbol: json['BTC']['FROMSYMBOL'],
+      //   currencies: json,
+      // };
 
-      this.marketTicker = new model.MarketTicker().deserialize(tickerObject);
-      this.storageProvider.set(this.getKey(constants.STORAGE_MARKET_TICKER), tickerObject);
+      // this.marketTicker = new model.MarketTicker().deserialize(tickerObject);
+      // this.storageProvider.set(this.getKey(constants.STORAGE_MARKET_TICKER), tickerObject);
 
       return this.marketTicker;
     });

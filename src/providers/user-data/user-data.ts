@@ -18,6 +18,8 @@ import { Delegate } from 'ark-ts';
 import { TranslatableObject } from '@models/translate';
 import { StoredNetwork } from '@models/stored-network';
 
+import tycoonNetworkConfig from '../tycoon-networks/networks';
+
 @Injectable()
 export class UserDataProvider {
 
@@ -44,11 +46,36 @@ export class UserDataProvider {
 
   private _defaultNetworks: Network[];
 
+  private _tycoonNetworks: Network[];
+
   public get defaultNetworks(): Network[] {
     if (!this._defaultNetworks) {
       this._defaultNetworks = Network.getAll();
     }
     return this._defaultNetworks;
+  }
+
+  public get tycoonNetworks(): Network[] {
+    if (!this._tycoonNetworks) {
+      const networks = tycoonNetworkConfig.networks;
+      const list = [];
+
+      Object.keys(networks).forEach((item) => {
+        const name = networks[item];
+        const {peers, ...defaultNetwork} = name; // to remove peers list
+
+        const network = new Network();
+        Object.assign(network, defaultNetwork);
+
+        const type = NetworkType[item.charAt(0).toUpperCase() + item.substr(1).toLowerCase()];
+        network.type = type;
+
+        list.push(network);
+      });
+
+      this._tycoonNetworks = list;
+    }
+    return this._tycoonNetworks;
   }
 
   constructor(
@@ -311,8 +338,8 @@ export class UserDataProvider {
         if (!networks || lodash.isEmpty(networks)) {
           const uniqueDefaults = {};
 
-          for (let i = 0; i < this.defaultNetworks.length; i++) {
-            uniqueDefaults[this.generateUniqueId()] = this.defaultNetworks[i];
+          for (let i = 0; i < this.tycoonNetworks.length; i++) {
+            uniqueDefaults[this.generateUniqueId()] = this.tycoonNetworks[i];
           }
 
           this.storageProvider.set(constants.STORAGE_NETWORKS, uniqueDefaults);

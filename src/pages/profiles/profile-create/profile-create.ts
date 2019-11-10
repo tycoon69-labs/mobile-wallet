@@ -70,12 +70,12 @@ export class ProfileCreatePage implements OnDestroy {
       this.networkChoices =
         this.networksIds
           .filter(id => this.userDataProvider
-                            .defaultNetworks
+                            .tycoonNetworks
                             .some(defaultNetwork => this.networks[id].nethash === defaultNetwork.nethash))
           .map(id => {
             return {name: this.networks[id].name, id: id};
           });
-      this.networkChoices.push({name: customTrans, id: null});
+      // this.networkChoices.push({name: customTrans, id: null});
       this.newProfile.networkId = this.networksIds[0];
       this.activeNetworkChoice = this.networkChoices[0];
     });

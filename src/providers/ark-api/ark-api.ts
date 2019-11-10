@@ -18,7 +18,7 @@ import * as arkts from 'ark-ts';
 import lodash from 'lodash';
 import moment from 'moment';
 import * as constants from '@app/app.constants';
-import arktsConfig from 'ark-ts/config';
+import tycoonConfig from '../tycoon-networks/networks';
 import { ArkUtility } from '../../utils/ark-utility';
 import {AccountResponse, Delegate, PeerResponse} from 'ark-ts';
 import { StoredNetwork, FeeStatistic } from '@models/stored-network';
@@ -66,7 +66,7 @@ export class ArkApiProvider {
   private _fees: arkts.Fees;
   private _delegates: arkts.Delegate[];
 
-  public arkjs = require('arkjs');
+  // public arkjs = require('arkjs');
 
   constructor(
     private httpClient: HttpClient,
@@ -122,10 +122,10 @@ export class ArkApiProvider {
     // set default peer
     if (network.type !== null) {
       const activePeer = network.activePeer;
-      const apiNetwork = arkts.Network.getDefault(network.type);
-      if (apiNetwork) {
-        network = Object.assign<StoredNetwork, arkts.Network>(network, apiNetwork);
-      }
+      // const apiNetwork = arkts.Network.getDefault(network.type);
+      // if (apiNetwork) {
+      //   network = Object.assign<StoredNetwork, arkts.Network>(network, apiNetwork);
+      // }
       if (activePeer) {
         network.activePeer = activePeer;
       }
@@ -133,15 +133,16 @@ export class ArkApiProvider {
     this._delegates = [];
 
     this._network = network;
-    this.arkjs.crypto.setNetworkVersion(this._network.version);
+    // this.arkjs.crypto.setNetworkVersion(this._network.version);
 
     this._api = new arkts.Client(this._network);
+
     this._client = new ArkClient(this.network.getPeerAPIUrl(), this.httpClient);
     this._peerDiscovery = new PeerDiscovery(this.httpClient);
     this.connectToRandomPeer().subscribe();
 
     // Fallback if the fetchEpoch fail
-    this._network.epoch = arktsConfig.blockchain.date;
+    this._network.epoch = tycoonConfig.blockchain.date;
     // Fallback if the fetchNodeConfiguration fail
     this._network.activeDelegates = constants.NUM_ACTIVE_DELEGATES;
     this.userDataProvider.onUpdateNetwork$.next(this._network);

@@ -1,4 +1,4 @@
-# Ark Mobile
+# T69 Mobile
 
 <p align="center">
     <img src="./banner.png" />
@@ -100,4 +100,4 @@ This project exists thanks to all the people who [contribute](../../contributors
 
 ## License
 
-[MIT](LICENSE) © [ARK Ecosystem](https://ark.io)
+[MIT](LICENSE) © [Tycoonchain](https://ark.io)
