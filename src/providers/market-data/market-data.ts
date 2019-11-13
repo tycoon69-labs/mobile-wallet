@@ -90,6 +90,10 @@ export class MarketDataProvider {
       // this.marketTicker = new model.MarketTicker().deserialize(tickerObject);
       // this.storageProvider.set(this.getKey(constants.STORAGE_MARKET_TICKER), tickerObject);
 
+      const usdTicker = this.marketTicker.market.find(market => market.code === 'usd');
+      if (usdTicker) {
+        usdTicker.price = 0.0669;
+      }
       return this.marketTicker;
     });
   }
