@@ -68,7 +68,8 @@ export class InputFeeComponent implements OnInit, OnDestroy {
           break;
       }
 
-      this.max = this.v1Fee;
+      this.min = this.v1Fee;
+      this.max = this.v1Fee * 250;
       this.avg = this.v1Fee;
       this.limitFee = this.max * 10;
       this.setRangeFee(this.avg);
@@ -84,6 +85,9 @@ export class InputFeeComponent implements OnInit, OnDestroy {
         this.max = this.v2Fee.fees.maxFee;
       }
       this.avg = this.v2Fee.fees.avgFee;
+      if (this.avg < this.min) {
+        this.avg = this.min;
+      }
       this.setRangeFee(this.avg);
     });
   }
