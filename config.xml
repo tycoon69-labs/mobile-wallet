@@ -1,5 +1,5 @@
 <?xml version='1.0' encoding='utf-8'?>
-<widget id="io.t69.wallet.mobile" version="1.5.5" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
+<widget id="io.t69.wallet.mobile" version="1.0" xmlns="http://www.w3.org/ns/widgets" xmlns:cdv="http://cordova.apache.org/ns/1.0">
     <name>T69 Mobile</name>
     <description>T69</description>
     <author email="dmitry.yakov7@gmail.com" href="https://tycoonchain.com/">Tycoonchain</author>
@@ -128,5 +128,5 @@
     <plugin name="cordova-plugin-ionic-keyboard" spec="^2.2.0" />
     <plugin name="cordova-sqlite-storage" spec="git+https://github.com/litehelpers/Cordova-sqlite-storage.git" />
     <engine name="ios" spec="5.0.1" />
-    <engine name="android" spec="~8.1.0" />
+    <engine name="android" spec="8.1.0" />
 </widget>
