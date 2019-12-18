@@ -92,7 +92,7 @@ export class MarketDataProvider {
 
       const usdTicker = this.marketTicker.market.find(market => market.code === 'usd');
       if (usdTicker) {
-        usdTicker.price = 0.0669;
+        usdTicker.price = 0.1569;
       }
       return this.marketTicker;
     });
