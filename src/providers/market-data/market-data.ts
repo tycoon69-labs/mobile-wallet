@@ -80,7 +80,24 @@ export class MarketDataProvider {
       return currency.code.toUpperCase();
     }).join(',');
 
-    return this.http.get(url + currenciesList).map((response) => {
+    // return this.http.get(url + currenciesList).map((response) => {
+    //   // const json = response['RAW'][this.marketTickerName] || response['RAW'][this.marketTickerName.toUpperCase()];
+    //   // const tickerObject = {
+    //   //   symbol: json['BTC']['FROMSYMBOL'],
+    //   //   currencies: json,
+    //   // };
+
+    //   // this.marketTicker = new model.MarketTicker().deserialize(tickerObject);
+    //   // this.storageProvider.set(this.getKey(constants.STORAGE_MARKET_TICKER), tickerObject);
+
+    //   const usdTicker = this.marketTicker.market.find(market => market.code === 'usd');
+    //   if (usdTicker) {
+    //     usdTicker.price = 0.2169;
+    //   }
+    //   return this.marketTicker;
+    // });
+
+    return this.http.get('https://emirex.com/api/v1/ticker?filter=t69').map((response) => {
       // const json = response['RAW'][this.marketTickerName] || response['RAW'][this.marketTickerName.toUpperCase()];
       // const tickerObject = {
       //   symbol: json['BTC']['FROMSYMBOL'],
@@ -92,7 +109,7 @@ export class MarketDataProvider {
 
       const usdTicker = this.marketTicker.market.find(market => market.code === 'usd');
       if (usdTicker) {
-        usdTicker.price = 0.1569;
+        usdTicker.price = response.T69USDT.last;
       }
       return this.marketTicker;
     });
