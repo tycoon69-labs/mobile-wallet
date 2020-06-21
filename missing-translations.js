@@ -31,7 +31,7 @@ fs.readFile(path.join(i18nDir, masterFileName), 'utf8', (err, masterJson) => {
       fs.readFile(path.join(i18nDir, fileName), 'utf8', (err, json) => {
         const missingKeys = getMissingKeys(JSON.parse(masterJson), JSON.parse(json));
         if (missingKeys.length) {
-          console.log(`Missing translations in ${fileName} (${missingKeys.length}):`);
+          console.log(`\n Missing translations in ${fileName} (${missingKeys.length}):\n`);
           missingKeys.forEach(key => console.log(`  ${key}`));
         } else {
           console.log(`File ${fileName} has no missing translations`);
