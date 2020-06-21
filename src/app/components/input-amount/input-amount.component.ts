@@ -4,14 +4,14 @@ import {
 	FormControl,
 	FormGroupDirective,
 } from "@angular/forms";
+import { BigNumber } from "@arkecosystem/platform-sdk-support";
 import { Network } from "ark-ts/model";
 
 import * as constants from "@/app/app.constants";
 import { MarketCurrency } from "@/models/model";
 import { MarketDataProvider } from "@/services/market-data/market-data";
 import { SettingsDataProvider } from "@/services/settings-data/settings-data";
-import { UserDataProvider } from "@/services/user-data/user-data";
-import BigNumber, { SafeBigNumber } from "@/utils/bignumber";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "input-amount",
@@ -31,12 +31,12 @@ export class InputAmountComponent implements OnInit {
 	public currentNetwork: Network;
 
 	public constructor(
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private marketDataProvider: MarketDataProvider,
 		private settingsDataProvider: SettingsDataProvider,
 		private parentForm: FormGroupDirective,
 	) {
-		this.currentNetwork = this.userDataProvider.currentNetwork;
+		this.currentNetwork = this.userDataService.currentNetwork;
 	}
 
 	public ngOnInit() {
@@ -46,15 +46,15 @@ export class InputAmountComponent implements OnInit {
 			new FormControl("amountEquivalent"),
 		);
 
-		this.parentForm.form.controls.amount.valueChanges.subscribe(value =>
+		this.parentForm.form.controls.amount.valueChanges.subscribe((value) =>
 			this.onInputToken(value),
 		);
 		this.parentForm.form.controls.amountEquivalent.valueChanges.subscribe(
-			value => this.onInputFiat(value),
+			(value) => this.onInputFiat(value),
 		);
 
-		this.marketDataProvider.ticker.subscribe(ticker => {
-			this.settingsDataProvider.settings.subscribe(settings => {
+		this.marketDataProvider.ticker.subscribe((ticker) => {
+			this.settingsDataProvider.settings.subscribe((settings) => {
 				this.marketCurrency = ticker.getCurrency({
 					code: settings.currency,
 				});
@@ -65,7 +65,7 @@ export class InputAmountComponent implements OnInit {
 	}
 
 	public onInputToken(currency: string | BigNumber) {
-		const fiatAmount = new SafeBigNumber(currency).multipliedBy(
+		const fiatAmount = BigNumber.make(currency).times(
 			this.marketCurrency.price,
 		);
 		this.parentForm.form.controls.amountEquivalent.setValue(fiatAmount, {
@@ -74,7 +74,7 @@ export class InputAmountComponent implements OnInit {
 	}
 
 	public onInputFiat(currency: string | BigNumber) {
-		const tokenAmount = new SafeBigNumber(currency).dividedBy(
+		const tokenAmount = BigNumber.make(currency).divide(
 			this.marketCurrency.price,
 		);
 		this.parentForm.form.controls.amount.setValue(tokenAmount, {

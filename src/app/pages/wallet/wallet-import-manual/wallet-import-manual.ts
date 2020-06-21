@@ -7,6 +7,7 @@ import * as bip39 from "bip39";
 import { finalize } from "rxjs/operators";
 
 import * as constants from "@/app/app.constants";
+import { AuthController } from "@/app/auth/shared/auth.controller";
 import { BaseWalletImport } from "@/app/pages/wallet/wallet-import/wallet-import.base";
 import { AddressValidator } from "@/app/validators/address/address";
 import { PassphraseValidator } from "@/app/validators/passphrase/passphrase";
@@ -14,7 +15,7 @@ import { ArkApiProvider } from "@/services/ark-api/ark-api";
 import { NetworkProvider } from "@/services/network/network";
 import { SettingsDataProvider } from "@/services/settings-data/settings-data";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "page-wallet-import-passphrase",
@@ -47,7 +48,7 @@ export class WalletManualImportPage extends BaseWalletImport {
 	constructor(
 		route: ActivatedRoute,
 		navCtrl: NavController,
-		userDataProvider: UserDataProvider,
+		userDataProvider: UserDataService,
 		arkApiProvider: ArkApiProvider,
 		toastProvider: ToastProvider,
 		modalCtrl: ModalController,
@@ -56,6 +57,7 @@ export class WalletManualImportPage extends BaseWalletImport {
 		private formBuilder: FormBuilder,
 		private addressValidator: AddressValidator,
 		settingsDataProvider: SettingsDataProvider,
+		authCtrl: AuthController,
 	) {
 		super(
 			route,
@@ -66,6 +68,7 @@ export class WalletManualImportPage extends BaseWalletImport {
 			modalCtrl,
 			networkProvider,
 			settingsDataProvider,
+			authCtrl,
 		);
 		this.useAddress =
 			route.snapshot.queryParamMap.get("type") === "address";
@@ -257,7 +260,7 @@ export class WalletManualImportPage extends BaseWalletImport {
 		) {
 			// we just want one letter to be different - only "manual" typing, don't suggest on copy/paste stuff
 			this.wordSuggestions = this.wordlist.filter(
-				word => word.indexOf(lastWordPassphrase) === 0,
+				(word) => word.indexOf(lastWordPassphrase) === 0,
 			);
 		}
 	}

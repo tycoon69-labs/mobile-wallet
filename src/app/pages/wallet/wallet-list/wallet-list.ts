@@ -11,11 +11,11 @@ import { Network } from "ark-ts/model";
 import lodash from "lodash";
 import { BaseChartDirective } from "ng2-charts";
 import { Subject } from "rxjs";
-import { takeUntil } from "rxjs/operators";
+import { switchMap, takeUntil, tap } from "rxjs/operators";
 
 import * as constants from "@/app/app.constants";
+import { AuthController } from "@/app/auth/shared/auth.controller";
 import { GenerateEntropyModal } from "@/app/modals/generate-entropy/generate-entropy";
-import { PinCodeModal } from "@/app/modals/pin-code/pin-code";
 import { WalletBackupModal } from "@/app/modals/wallet-backup/wallet-backup";
 import {
 	MarketCurrency,
@@ -27,7 +27,7 @@ import {
 import { ArkApiProvider } from "@/services/ark-api/ark-api";
 import { MarketDataProvider } from "@/services/market-data/market-data";
 import { SettingsDataProvider } from "@/services/settings-data/settings-data";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "page-wallet-list",
@@ -75,7 +75,7 @@ export class WalletListPage implements OnInit, OnDestroy {
 
 	constructor(
 		public navCtrl: NavController,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private marketDataProvider: MarketDataProvider,
 		private modalCtrl: ModalController,
 		private actionSheetCtrl: ActionSheetController,
@@ -83,17 +83,18 @@ export class WalletListPage implements OnInit, OnDestroy {
 		private settingsDataProvider: SettingsDataProvider,
 		private ngZone: NgZone,
 		private arkApiProvider: ArkApiProvider,
+		private authCtrl: AuthController,
 	) {}
 
 	ngOnInit() {
 		this.loadUserData();
 
-		this.userDataProvider.clearCurrentWallet();
+		this.userDataService.clearCurrentWallet();
 	}
 
 	async onSlideChanged() {
 		const realIndex = await this.slider.getActiveIndex();
-		this.selectedWallet = this.userDataProvider.getWalletByAddress(
+		this.selectedWallet = this.userDataService.getWalletByAddress(
 			this.wallets[realIndex].address,
 		);
 	}
@@ -106,7 +107,7 @@ export class WalletListPage implements OnInit, OnDestroy {
 				},
 			})
 			.then(() => {
-				this.userDataProvider
+				this.userDataService
 					.updateWallet(wallet, this.currentProfile.profileId)
 					.subscribe(() => {
 						this.loadWallets();
@@ -123,7 +124,7 @@ export class WalletListPage implements OnInit, OnDestroy {
 				"IMPORT_PASSPHRASE",
 				"IMPORT_ADDRESS",
 			])
-			.subscribe(async translation => {
+			.subscribe(async (translation) => {
 				const actionSheet = await this.actionSheetCtrl.create({
 					buttons: [
 						{
@@ -223,34 +224,25 @@ export class WalletListPage implements OnInit, OnDestroy {
 		}
 	}
 
-	private async storeWallet(account) {
+	private storeWallet(account) {
 		const wallet = new Wallet();
 		wallet.address = account.address;
 		wallet.publicKey = account.publicKey;
 
-		const modal = await this.modalCtrl.create({
-			component: PinCodeModal,
-			componentProps: {
-				message: "PIN_CODE.TYPE_PIN_ENCRYPT_PASSPHRASE",
-				outputPassword: true,
-				validatePassword: true,
-			},
-		});
-
-		modal.onDidDismiss().then(({ data: password }) => {
-			if (!password) {
-				return;
-			}
-
-			this.userDataProvider
-				.addWallet(wallet, account.mnemonic, password)
-				.pipe(takeUntil(this.unsubscriber$))
-				.subscribe(() => {
-					this.loadWallets();
-				});
-		});
-
-		modal.present();
+		this.authCtrl
+			.request()
+			.pipe(
+				switchMap(({ password }) =>
+					this.userDataService.addWallet(
+						wallet,
+						account.mnemonic,
+						password,
+					),
+				),
+				tap(() => this.loadWallets()),
+				takeUntil(this.unsubscriber$),
+			)
+			.subscribe();
 	}
 
 	private loadWallets() {
@@ -276,7 +268,7 @@ export class WalletListPage implements OnInit, OnDestroy {
 
 		this.totalBalance = lodash
 			.chain(list)
-			.sumBy(w => parseInt(w.balance))
+			.sumBy((w) => parseInt(w.balance))
 			.value();
 		const wholeArk = this.totalBalance / constants.WALLET_UNIT_TO_SATOSHI;
 		this.fiatBalance =
@@ -284,22 +276,22 @@ export class WalletListPage implements OnInit, OnDestroy {
 
 		this.wallets = lodash.orderBy(list, ["lastUpdate"], ["desc"]);
 		if (!this.selectedWallet && this.wallets.length) {
-			this.selectedWallet = this.userDataProvider.getWalletByAddress(
+			this.selectedWallet = this.userDataService.getWalletByAddress(
 				this.wallets[0].address,
 			);
 		}
 	}
 
 	private loadUserData() {
-		this.currentNetwork = this.userDataProvider.currentNetwork;
-		this.currentProfile = this.userDataProvider.currentProfile;
+		this.currentNetwork = this.userDataService.currentNetwork;
+		this.currentProfile = this.userDataService.currentProfile;
 	}
 
 	private onCreateUpdateWallet() {
-		this.userDataProvider.onCreateWallet$
+		this.userDataService.onCreateWallet$
 			.pipe(takeUntil(this.unsubscriber$))
 			.subscribe(() => this.loadWallets());
-		this.userDataProvider.onUpdateWallet$
+		this.userDataService.onUpdateWallet$
 			.pipe(takeUntil(this.unsubscriber$))
 			.subscribe(() => this.loadWallets());
 	}
@@ -315,14 +307,14 @@ export class WalletListPage implements OnInit, OnDestroy {
 				"WEEK_DAY.FRIDAY",
 				"WEEK_DAY.SATURDAY",
 			])
-			.subscribe(translation => {
+			.subscribe((translation) => {
 				if (lodash.isEmpty(this.wallets)) {
 					return;
 				}
 
 				const days = lodash.values(translation);
 
-				this.settingsDataProvider.settings.subscribe(settings => {
+				this.settingsDataProvider.settings.subscribe((settings) => {
 					if (this.marketDataProvider.cachedHistory) {
 						this.setChartData(
 							settings,
@@ -333,7 +325,7 @@ export class WalletListPage implements OnInit, OnDestroy {
 
 					this.marketDataProvider.onUpdateHistory$
 						.pipe(takeUntil(this.unsubscriber$))
-						.subscribe(updatedHistory =>
+						.subscribe((updatedHistory) =>
 							this.setChartData(settings, days, updatedHistory),
 						);
 					this.marketDataProvider.fetchHistory().subscribe();
@@ -445,7 +437,7 @@ export class WalletListPage implements OnInit, OnDestroy {
 		this.marketTicker = ticker;
 		this.btcCurrency = ticker.getCurrency({ code: "btc" });
 
-		this.settingsDataProvider.settings.subscribe(settings => {
+		this.settingsDataProvider.settings.subscribe((settings) => {
 			const currency =
 				!settings || !settings.currency
 					? this.settingsDataProvider.getDefaults().currency
@@ -465,7 +457,7 @@ export class WalletListPage implements OnInit, OnDestroy {
 		// now let's subscribe for any future changes
 		this.marketDataProvider.onUpdateTicker$
 			.pipe(takeUntil(this.unsubscriber$))
-			.subscribe(updatedTicker => this.setTicker(updatedTicker));
+			.subscribe((updatedTicker) => this.setTicker(updatedTicker));
 		// let's get the up-to-date data from the internet now
 		this.marketDataProvider.refreshTicker();
 		// finally update the data in a regular interval

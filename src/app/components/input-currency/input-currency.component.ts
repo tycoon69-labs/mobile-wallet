@@ -11,11 +11,11 @@ import {
 	FormControl,
 	NG_VALUE_ACCESSOR,
 } from "@angular/forms";
+import { BigNumber } from "@arkecosystem/platform-sdk-support";
 
 import { ARKTOSHI_DP } from "@/app/app.constants";
-import BigNumber, { SafeBigNumber } from "@/utils/bignumber";
 
-export interface IInputCurrencyOutput {
+export interface InputCurrencyOutput {
 	display: string;
 	value: BigNumber;
 	satoshi: BigNumber;
@@ -24,6 +24,7 @@ export interface IInputCurrencyOutput {
 @Component({
 	selector: "input-currency",
 	templateUrl: "input-currency.component.html",
+	styleUrls: ["input-currency.component.scss"],
 	providers: [
 		{
 			provide: NG_VALUE_ACCESSOR,
@@ -34,10 +35,8 @@ export interface IInputCurrencyOutput {
 	],
 })
 export class InputCurrencyComponent implements OnInit, ControlValueAccessor {
-	public formControl = new FormControl("");
-
 	@Output()
-	public updated = new EventEmitter<IInputCurrencyOutput>();
+	public inputCurrencyUpdate = new EventEmitter<InputCurrencyOutput>();
 
 	@Input()
 	public name: string;
@@ -48,15 +47,20 @@ export class InputCurrencyComponent implements OnInit, ControlValueAccessor {
 	@Input()
 	public fractionDigits = ARKTOSHI_DP;
 
-	public isDisabled: boolean;
+	@Input()
+	public isRelaxed = false;
+
+	@Input()
+	public isDisabled = false;
 	public input: (value: BigNumber) => void;
 
+	public formControl: FormControl;
 	constructor() {}
 
 	public onTouched = () => {};
 
 	writeValue(value: string | number | BigNumber): void {
-		if (SafeBigNumber.isBigNumber(value)) {
+		if (value instanceof BigNumber) {
 			this.format(value.toString());
 		} else {
 			this.format(String(value));
@@ -76,9 +80,13 @@ export class InputCurrencyComponent implements OnInit, ControlValueAccessor {
 	}
 
 	ngOnInit() {
+		this.formControl = new FormControl({
+			value: undefined,
+			disabled: this.isDisabled,
+		});
 		this.formControl.valueChanges.subscribe((value: string) => {
 			const formatted = this.format(value);
-			this.input(formatted.value);
+			this.input?.(formatted.value);
 		});
 
 		if (!this.placeholder) {
@@ -89,14 +97,14 @@ export class InputCurrencyComponent implements OnInit, ControlValueAccessor {
 	private format(value: string) {
 		const sanitized = this.sanitizeInput(value);
 		this.formControl.setValue(sanitized.display, { emitEvent: false });
-		this.updated.emit(sanitized);
+		this.inputCurrencyUpdate.emit(sanitized);
 		return sanitized;
 	}
 
 	/**
 	 * Copied from https://github.com/LedgerHQ/ledger-live-desktop with changes
 	 */
-	private sanitizeInput(input: string): IInputCurrencyOutput {
+	private sanitizeInput(input: string): InputCurrencyOutput {
 		const numbers = "0123456789";
 		const separatos = ".,";
 
@@ -122,10 +130,12 @@ export class InputCurrencyComponent implements OnInit, ControlValueAccessor {
 			}
 		}
 
-		const zero = new SafeBigNumber(0);
-		const value = display ? new SafeBigNumber(display) : zero;
+		const zero = BigNumber.ZERO;
+		const value = display ? BigNumber.make(display) : zero;
 
-		const satoshi = display ? value.shiftedBy(this.fractionDigits) : zero;
+		const satoshi = display
+			? value.times(Math.pow(10, this.fractionDigits))
+			: zero;
 
 		return { display, value, satoshi };
 	}

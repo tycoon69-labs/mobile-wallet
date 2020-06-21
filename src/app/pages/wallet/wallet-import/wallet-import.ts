@@ -2,6 +2,7 @@ import { Component, OnInit, ViewChild } from "@angular/core";
 import { ActivatedRoute } from "@angular/router";
 import { ModalController, NavController } from "@ionic/angular";
 
+import { AuthController } from "@/app/auth/shared/auth.controller";
 import { BaseWalletImport } from "@/app/pages/wallet/wallet-import/wallet-import.base";
 import { QRScannerComponent } from "@/components/qr-scanner/qr-scanner";
 import { QRCodeScheme } from "@/models/model";
@@ -9,7 +10,7 @@ import { ArkApiProvider } from "@/services/ark-api/ark-api";
 import { NetworkProvider } from "@/services/network/network";
 import { SettingsDataProvider } from "@/services/settings-data/settings-data";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "page-wallet-import",
@@ -23,12 +24,13 @@ export class WalletImportPage extends BaseWalletImport implements OnInit {
 	constructor(
 		route: ActivatedRoute,
 		navCtrl: NavController,
-		userDataProvider: UserDataProvider,
+		userDataProvider: UserDataService,
 		arkApiProvider: ArkApiProvider,
 		toastProvider: ToastProvider,
 		modalCtrl: ModalController,
 		networkProvider: NetworkProvider,
 		settingsDataProvider: SettingsDataProvider,
+		authCtrl: AuthController,
 	) {
 		super(
 			route,
@@ -39,6 +41,7 @@ export class WalletImportPage extends BaseWalletImport implements OnInit {
 			modalCtrl,
 			networkProvider,
 			settingsDataProvider,
+			authCtrl,
 		);
 	}
 

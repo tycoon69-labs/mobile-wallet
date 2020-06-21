@@ -20,7 +20,8 @@
 			<ion-row class="row-contacts">
 				<ion-col>
 					<input-address
-						(inputAddressContactClick)="presetWalletPickerModal()"
+						formControlName="recipientId"
+						(inputAddressContactClick)="toggleWalletPickerModal()"
 						(inputAddressQRCodeClick)="scanQRCode()"
 					></input-address>
 				</ion-col>
@@ -45,9 +46,12 @@
 			<ion-row class="flex-grow">
 				<ion-col>
 					<input-fee
-						[transactionType]="transactionType"
-						(change)="onFeeChange($event)"
-						(error)="onFeeError($event)"
+						[parent]="sendForm"
+						[isStatic]="nodeFees.isStatic"
+						[min]="nodeFees.min"
+						[avg]="nodeFees.avg"
+						[max]="nodeFees.max"
+						(inputFeeUpdate)="onFeeChange($event)"
 					></input-fee>
 				</ion-col>
 			</ion-row>
@@ -65,7 +69,18 @@
 	</form>
 </ion-content>
 
-<pin-code [wallet]="currentWallet" #pinCode></pin-code>
+<bottom-drawer
+	[bottomOffset]="0"
+	[isOpen]="isWalletPickerModalOpen"
+	[buttonClose]="false"
+	(buttonDrawerOnClose)="closeWalletPickerModal()"
+	(buttonDrawerOnBackdropTap)="closeWalletPickerModal()"
+>
+	<wallet-picker-modal
+		(walletPickerModalOnPick)="onPickWallet($event)"
+	></wallet-picker-modal>
+</bottom-drawer>
+
 <confirm-transaction
 	[wallet]="currentWallet"
 	#confirmTransaction

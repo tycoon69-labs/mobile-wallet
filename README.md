@@ -6,6 +6,8 @@
 
 > A Wallet for Everyone
 
+[![Build Status](https://badgen.now.sh/circleci/github/tycoon69-labs/mobile-wallet)](https://circleci.com/gh/tycoon69-labs/mobile-wallet)
+[![Codecov](https://badgen.now.sh/codecov/c/github/tycoon69-labs/mobile-wallet)](https://codecov.io/gh/tycoon69-labs/mobile-wallet)
 [![Latest Version](https://badgen.now.sh/github/release/tycoon69-labs/mobile-wallet)](https://github.com/tycoon69-labs/mobile-wallet/releases/latest)
 [![License: MIT](https://badgen.now.sh/badge/license/MIT/green)](https://opensource.org/licenses/MIT)
 

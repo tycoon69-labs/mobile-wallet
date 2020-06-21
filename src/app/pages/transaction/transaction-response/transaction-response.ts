@@ -6,7 +6,7 @@ import { ModalController, NavController } from "@ionic/angular";
 
 import { StoredNetwork, Transaction, Wallet } from "@/models/model";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "page-transaction-response",
@@ -27,13 +27,13 @@ export class TransactionResponsePage {
 		public navCtrl: NavController,
 		private clipboard: Clipboard,
 		private modalCtrl: ModalController,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private toastProvider: ToastProvider,
 		private iab: InAppBrowser,
 		private route: ActivatedRoute,
 	) {
-		this.wallet = this.userDataProvider.currentWallet;
-		this.currentNetwork = this.userDataProvider.currentNetwork;
+		this.wallet = this.userDataService.currentWallet;
+		this.currentNetwork = this.userDataService.currentNetwork;
 
 		this.response = this.route.snapshot.queryParamMap.get("response");
 		const transaction = this.route.snapshot.queryParamMap.get(
@@ -68,40 +68,6 @@ export class TransactionResponsePage {
 			"WALLETS_PAGE.ALERT_SUCCESSFULLY_ENCRYPTED_SECOND_PASSPHRASE",
 		);
 	}
-
-	// async saveSecondPassphrase() {
-	//   const modal = await this.modalCtrl.create({
-	//     component: PinCodeModal,
-	//     componentProps: {
-	//       message: 'PIN_CODE.TYPE_PIN_ENCRYPT_PASSPHRASE',
-	//       outputPassword: true,
-	//       validatePassword: true,
-	//     }
-	//   });
-
-	//   modal.onDidDismiss().then((({ data }) => {
-	//     if (!data.password) { return; }
-
-	//     this.userDataProvider.encryptSecondPassphrase(this.wallet, data.password, this.keys.secondPassphrase).subscribe(() => {
-	//       this.wallet = this.userDataProvider.getWalletByAddress(this.wallet.address);
-
-	//       this.showKeepSecondPassphrase = false;
-	//       this.presentEncryptedAlert();
-	//     });
-	//   }));
-
-	//   modal.present();
-	// }
-
-	// verifySecondPassphrasHasEncrypted() {
-	//   if (!this.transaction) { return; }
-
-	//   if (this.transaction.type === TransactionType.SecondSignature || (this.wallet.secondPublicKey && !this.wallet.cipherSecondKey)) {
-	//     if (this.response.status) { return this.showKeepSecondPassphrase = true; }
-	//   }
-
-	//   this.showKeepSecondPassphrase = false;
-	// }
 
 	dismiss() {
 		if (this.response && this.response.status) {

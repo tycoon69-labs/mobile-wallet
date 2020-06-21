@@ -1,4 +1,5 @@
 import { OnDestroy, Pipe, PipeTransform } from "@angular/core";
+import { BigNumber } from "@arkecosystem/platform-sdk-support";
 import { Subject } from "rxjs";
 import { finalize, takeUntil, tap } from "rxjs/operators";
 
@@ -6,7 +7,6 @@ import { MarketCurrency, MarketTicker } from "@/models/model";
 import { UserSettings } from "@/models/settings";
 import { MarketDataProvider } from "@/services/market-data/market-data";
 import { SettingsDataProvider } from "@/services/settings-data/settings-data";
-import { SafeBigNumber as BigNumber } from "@/utils/bignumber";
 
 @Pipe({
 	name: "marketNumber",
@@ -23,9 +23,9 @@ export class MarketNumberPipe implements PipeTransform, OnDestroy {
 	) {
 		this.marketDataProvider.ticker
 			.pipe(
-				tap(ticker => (this.marketTicker = ticker)),
+				tap((ticker) => (this.marketTicker = ticker)),
 				finalize(() =>
-					this.settingsDataProvider.settings.subscribe(settings =>
+					this.settingsDataProvider.settings.subscribe((settings) =>
 						this.updateCurrency(settings),
 					),
 				),
@@ -34,10 +34,10 @@ export class MarketNumberPipe implements PipeTransform, OnDestroy {
 
 		this.settingsDataProvider.onUpdate$
 			.pipe(takeUntil(this.unsubscriber$))
-			.subscribe(settings => this.updateCurrency(settings));
+			.subscribe((settings) => this.updateCurrency(settings));
 		this.marketDataProvider.onUpdateTicker$
 			.pipe(takeUntil(this.unsubscriber$))
-			.subscribe(ticker => (this.marketTicker = ticker));
+			.subscribe((ticker) => (this.marketTicker = ticker));
 	}
 
 	transform(value: number | string, forceCurrency?: MarketCurrency) {
@@ -50,7 +50,7 @@ export class MarketNumberPipe implements PipeTransform, OnDestroy {
 			return;
 		}
 
-		const trueValue = new BigNumber(value.toString());
+		const trueValue = BigNumber.make(value.toString());
 		let decimalPlaces = 2;
 
 		if (currency && currency.code === "btc") {

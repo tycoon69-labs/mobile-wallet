@@ -24,7 +24,7 @@
 			"@/app/*": ["./src/app/*"],
 			"@@/*": ["./*"],
 			"*": ["./types/*"]
-		}
+		},
 	},
 	"angularCompilerOptions": {
 		"fullTemplateTypeCheck": true,
