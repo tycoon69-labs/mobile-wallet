@@ -12,7 +12,7 @@ export default {
       token: 'T69',
       symbol: 'T69',
       version: 65,
-      explorer: 'https://explorer.tycoonchain.com',
+      explorer: 'http://explorer.tycoonchain.com',
       wif: 0xaa,
       p2pPort: 4001,
       apiPort: 4003,

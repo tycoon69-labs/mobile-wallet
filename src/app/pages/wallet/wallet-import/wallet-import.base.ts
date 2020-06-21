@@ -3,15 +3,15 @@ import { ModalController, NavController } from "@ionic/angular";
 import { PrivateKey, PublicKey } from "ark-ts";
 import * as bip39 from "bip39";
 import { EMPTY, Observable } from "rxjs";
-import { finalize } from "rxjs/operators";
+import { finalize, tap, throwIfEmpty } from "rxjs/operators";
 
-import { PinCodeModal } from "@/app/modals/pin-code/pin-code";
+import { AuthController } from "@/app/auth/shared/auth.controller";
 import { Wallet } from "@/models/model";
 import { ArkApiProvider } from "@/services/ark-api/ark-api";
 import { NetworkProvider } from "@/services/network/network";
 import { SettingsDataProvider } from "@/services/settings-data/settings-data";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 export abstract class BaseWalletImport {
 	public existingAddress: string;
@@ -20,16 +20,17 @@ export abstract class BaseWalletImport {
 	constructor(
 		protected route: ActivatedRoute,
 		protected navCtrl: NavController,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private arkApiProvider: ArkApiProvider,
 		protected toastProvider: ToastProvider,
 		private modalCtrl: ModalController,
 		private networkProvider: NetworkProvider,
 		private settingsDataProvider: SettingsDataProvider,
+		private authCtrl: AuthController,
 	) {
 		this.existingAddress = route.snapshot.queryParamMap.get("address");
 		this.settingsDataProvider.settings.subscribe(
-			settings => (this.wordlistLanguage = settings.wordlistLanguage),
+			(settings) => (this.wordlistLanguage = settings.wordlistLanguage),
 		);
 	}
 
@@ -83,7 +84,7 @@ export abstract class BaseWalletImport {
 
 		let newWallet = new Wallet(!privateKey);
 
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			this.arkApiProvider.client
 				.getWallet(address)
 				.pipe(
@@ -92,7 +93,7 @@ export abstract class BaseWalletImport {
 							this.addWallet(newWallet);
 						} else {
 							// if we are converting watch-only to full wallet, keep label from existing watch-only wallet
-							const existingWallet = this.userDataProvider.getWalletByAddress(
+							const existingWallet = this.userDataService.getWalletByAddress(
 								address,
 							);
 							if (existingWallet) {
@@ -108,7 +109,7 @@ export abstract class BaseWalletImport {
 					}),
 				)
 				.subscribe(
-					response => {
+					(response) => {
 						newWallet = newWallet.deserialize(response);
 					},
 					() => {
@@ -120,28 +121,19 @@ export abstract class BaseWalletImport {
 		});
 	}
 
-	private async verifyWithPinCode(
-		newWallet: Wallet,
-		passphrase: string,
-	): Promise<void> {
-		const modal = await this.modalCtrl.create({
-			component: PinCodeModal,
-			componentProps: {
-				message: "PIN_CODE.TYPE_PIN_ENCRYPT_PASSPHRASE",
-				outputPassword: true,
-				validatePassword: true,
-			},
-		});
-
-		modal.onDidDismiss().then(({ data }) => {
-			if (data) {
-				this.addWallet(newWallet, passphrase, data);
-			} else {
-				this.toastProvider.error("WALLETS_PAGE.ADD_WALLET_ERROR");
-			}
-		});
-
-		modal.present();
+	private verifyWithPinCode(newWallet: Wallet, passphrase: string): void {
+		this.authCtrl
+			.request()
+			.pipe(
+				tap(({ password }) =>
+					this.addWallet(newWallet, passphrase, password),
+				),
+				throwIfEmpty(),
+			)
+			.subscribe({
+				error: () =>
+					this.toastProvider.error("WALLETS_PAGE.ADD_WALLET_ERROR"),
+			});
 	}
 
 	private addWallet(
@@ -149,7 +141,7 @@ export abstract class BaseWalletImport {
 		passphrase?: string,
 		password?: string,
 	): void {
-		this.userDataProvider
+		this.userDataService
 			.addWallet(newWallet, passphrase, password)
 			.subscribe(() => {
 				this.navCtrl.navigateRoot("/wallets/dashboard", {

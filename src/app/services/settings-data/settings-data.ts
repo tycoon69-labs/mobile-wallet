@@ -2,6 +2,7 @@ import { Injectable } from "@angular/core";
 import { TranslateService } from "@ngx-translate/core";
 import lodash from "lodash";
 import { Observable, of, Subject } from "rxjs";
+import { tap } from "rxjs/operators";
 
 import * as constants from "@/app/app.constants";
 import { UserSettings } from "@/models/settings";
@@ -64,7 +65,7 @@ export class SettingsDataProvider {
 		private _storageProvider: StorageProvider,
 		private translateService: TranslateService,
 	) {
-		this.load().subscribe(data => {
+		this.load().subscribe((data) => {
 			this._settings = data;
 			this.save();
 		});
@@ -107,15 +108,19 @@ export class SettingsDataProvider {
 		);
 	}
 
-	public clearData(): void {
-		this._storageProvider.clear();
+	public clearData() {
+		return this._storageProvider.clear().pipe(
+			tap(() => {
+				this._settings = undefined;
+			}),
+		);
 	}
 
 	private load(): Observable<UserSettings> {
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			this._storageProvider
 				.getObject(constants.STORAGE_SETTINGS)
-				.subscribe(response => {
+				.subscribe((response) => {
 					let data = response;
 
 					if (lodash.isEmpty(data)) {

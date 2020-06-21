@@ -8,7 +8,7 @@ import { takeUntil } from "rxjs/operators";
 
 import { Profile } from "@/models/profile";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "page-profile-create",
@@ -33,7 +33,7 @@ export class ProfileCreatePage implements OnDestroy {
 	constructor(
 		public navCtrl: NavController,
 		private alertCtrl: AlertController,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private toastProvider: ToastProvider,
 		private translateService: TranslateService,
 	) {}
@@ -41,13 +41,13 @@ export class ProfileCreatePage implements OnDestroy {
 	onSelectNetwork(event: any) {
 		const detail = event.detail.value;
 		this.activeNetworkChoice = this.networkChoices.find(
-			item => item.id === detail,
+			(item) => item.id === detail,
 		);
 		this.newProfile.networkId = this.activeNetworkChoice.id;
 	}
 
 	submitForm() {
-		const existingProfile = this.userDataProvider.getProfileByName(
+		const existingProfile = this.userDataService.getProfileByName(
 			this.newProfile.name,
 		);
 
@@ -63,7 +63,7 @@ export class ProfileCreatePage implements OnDestroy {
 			profile.name = this.newProfile.name;
 			profile.networkId = this.newProfile.networkId;
 
-			this.userDataProvider
+			this.userDataService
 				.addProfile(profile)
 				.pipe(takeUntil(this.unsubscriber$))
 				.subscribe(
@@ -82,20 +82,20 @@ export class ProfileCreatePage implements OnDestroy {
 	load() {
 		this.translateService
 			.get("PROFILES_PAGE.CUSTOM")
-			.subscribe(customTrans => {
-				this.networks = this.userDataProvider.networks;
+			.subscribe((customTrans) => {
+				this.networks = this.userDataService.networks;
 				this.networksIds = lodash.keys(this.networks);
 				this.networkChoices = this.networksIds
-					.filter(id =>
-						this.userDataProvider.defaultNetworks.some(
-							defaultNetwork =>
+					.filter((id) =>
+						this.userDataService.defaultNetworks.some(
+							(defaultNetwork) =>
 								this.networks[id].name === defaultNetwork.name,
 						),
 					)
-					.map(id => {
+					.map((id) => {
 						return { name: this.networks[id].name, id };
 					});
-				this.networkChoices.push({ name: customTrans, id: null });
+				// this.networkChoices.push({ name: customTrans, id: null });
 				this.newProfile.networkId = this.networksIds[0];
 				this.activeNetworkChoice = this.networkChoices[0];
 			});
@@ -125,7 +125,7 @@ export class ProfileCreatePage implements OnDestroy {
 	private showAlert(titleKey: string, stringParams: any) {
 		this.translateService
 			.get([titleKey, "BACK_BUTTON_TEXT"], stringParams)
-			.subscribe(async translation => {
+			.subscribe(async (translation) => {
 				const alert = await this.alertCtrl.create({
 					subHeader: translation[titleKey],
 					buttons: [translation.BACK_BUTTON_TEXT],

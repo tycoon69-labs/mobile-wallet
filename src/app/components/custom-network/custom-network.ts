@@ -9,7 +9,7 @@ import {
 	EditNetworkAction,
 } from "@/app/modals/custom-network-edit/custom-network-edit";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "customNetwork",
@@ -32,7 +32,7 @@ export class CustomNetworkComponent implements OnInit {
 	public activeNetworkChoice: { name: string; id?: string };
 
 	public constructor(
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private modalCtrl: ModalController,
 		private toastProvider: ToastProvider,
 	) {}
@@ -68,16 +68,16 @@ export class CustomNetworkComponent implements OnInit {
 	}
 
 	private loadNetworks(): void {
-		this.networks = this.userDataProvider.networks;
+		this.networks = this.userDataService.networks;
 		this.networksIds = lodash.keys(this.networks);
 		this.networkChoices = this.networksIds
-			.filter(id =>
-				this.userDataProvider.defaultNetworks.every(
-					defaultNetwork =>
+			.filter((id) =>
+				this.userDataService.defaultNetworks.every(
+					(defaultNetwork) =>
 						this.networks[id].name !== defaultNetwork.name,
 				),
 			)
-			.map(id => {
+			.map((id) => {
 				return { name: this.networks[id].name, id };
 			});
 	}
@@ -111,7 +111,7 @@ export class CustomNetworkComponent implements OnInit {
 			this.loadNetworks();
 
 			const filteredNetworks = this.networkChoices.filter(
-				n => n.id === data.networkId,
+				(n) => n.id === data.networkId,
 			);
 			if (filteredNetworks.length) {
 				this.activeNetworkChoice = filteredNetworks[0];

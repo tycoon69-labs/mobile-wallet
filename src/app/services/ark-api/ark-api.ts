@@ -1,12 +1,20 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import * as ArkCrypto from "@tycoon69-labs/crypto";
+import { BigNumber } from "@arkecosystem/platform-sdk-support";
 import * as arkts from "ark-ts";
 import tycoonConfig from '../tycoon-networks/networks';
 import lodash from "lodash";
 import moment from "moment";
-import { EMPTY, Observable, of, Subject, throwError } from "rxjs";
-import { catchError, expand, finalize, switchMap, tap } from "rxjs/operators";
+import { EMPTY, Observable, of, Subject, throwError, zip } from "rxjs";
+import {
+	catchError,
+	expand,
+	finalize,
+	map,
+	switchMap,
+	tap,
+} from "rxjs/operators";
 
 import * as constants from "@/app/app.constants";
 import {
@@ -17,9 +25,8 @@ import {
 import { FeeStatistic, StoredNetwork } from "@/models/stored-network";
 import { StorageProvider } from "@/services/storage/storage";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 import { PeerDiscovery } from "@/utils/ark-peer-discovery";
-import { SafeBigNumber as BigNumber } from "@/utils/bignumber";
 
 import ArkClient, { WalletResponse } from "../../utils/ark-client";
 import { ArkUtility } from "../../utils/ark-utility";
@@ -61,13 +68,13 @@ export class ArkApiProvider {
 
 	constructor(
 		private httpClient: HttpClient,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private storageProvider: StorageProvider,
 		private toastProvider: ToastProvider,
 	) {
 		this.loadData();
 
-		this.userDataProvider.onActivateNetwork$.subscribe(network => {
+		this.userDataService.onActivateNetwork$.subscribe((network) => {
 			if (lodash.isEmpty(network)) {
 				return;
 			}
@@ -130,9 +137,7 @@ export class ArkApiProvider {
 		this._delegates = [];
 
 		this._network = network;
-		
-		console.log(this._network);
-		
+
 		this._api = new arkts.Client(this._network);
 		this._client = new ArkClient(
 			this.network.getPeerAPIUrl(),
@@ -147,20 +152,20 @@ export class ArkApiProvider {
 
 		this.connectToRandomPeer()
 			.pipe(
-				catchError(e => {
+				catchError((e) => {
 					console.error(e);
 					return throwError(e);
 				}),
 			)
 			.subscribe();
 
-		this.userDataProvider.onUpdateNetwork$.next(this._network);
+		this.userDataService.onUpdateNetwork$.next(this._network);
 
 		this.fetchFees().subscribe();
 	}
 
 	public connectToRandomPeer(): Observable<void> {
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			this.refreshPeers().subscribe(
 				() => {
 					this.updateNetwork(
@@ -171,7 +176,7 @@ export class ArkApiProvider {
 					observer.next();
 					observer.complete();
 				},
-				e => {
+				(e) => {
 					this.updateNetwork();
 					observer.error(e);
 				},
@@ -195,7 +200,7 @@ export class ArkApiProvider {
 
 		let delegates: arkts.Delegate[] = [];
 
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			this.client
 				.getDelegateList({ limit, page })
 				.pipe(
@@ -206,7 +211,7 @@ export class ArkApiProvider {
 						});
 						return page - 1 < totalPages ? next : EMPTY;
 					}),
-					tap(response => {
+					tap((response) => {
 						if (response.success && getAllDelegates) {
 							numberDelegatesToGet = response.totalCount;
 						}
@@ -224,7 +229,7 @@ export class ArkApiProvider {
 						observer.complete();
 					}),
 				)
-				.subscribe(data => {
+				.subscribe((data) => {
 					if (data.success) {
 						delegates = [...delegates, ...data.delegates];
 					}
@@ -238,7 +243,7 @@ export class ArkApiProvider {
 		secondKey: string,
 		secondPassphrase: string,
 	): Observable<Transaction> {
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			if (
 				!arkts.PublicKey.validateAddress(
 					transaction.address,
@@ -252,7 +257,7 @@ export class ArkApiProvider {
 				return observer.complete();
 			}
 
-			const wallet = this.userDataProvider.getWalletByAddress(
+			const wallet = this.userDataService.getWalletByAddress(
 				transaction.address,
 			);
 
@@ -273,9 +278,7 @@ export class ArkApiProvider {
 				return observer.complete();
 			}
 
-			const epochTime = moment(this._network.epoch)
-				.utc()
-				.valueOf();
+			const epochTime = moment(this._network.epoch).utc().valueOf();
 			const now = moment().valueOf();
 
 			const keys = ArkCrypto.Identities.Keys.fromPassphrase(key);
@@ -303,7 +306,7 @@ export class ArkApiProvider {
 
 			this.getNextWalletNonce(wallet.address)
 				.pipe(
-					tap(nonce => {
+					tap((nonce) => {
 						if (this._network.aip11) {
 							transaction.nonce = nonce;
 							transaction.typeGroup = 1;
@@ -359,7 +362,7 @@ export class ArkApiProvider {
 		peer: arkts.Peer = this._network.activePeer,
 		broadcast: boolean = true,
 	) {
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			const compressTransaction = JSON.parse(JSON.stringify(transaction));
 			this.client.postTransaction(compressTransaction, peer).subscribe(
 				(result: arkts.TransactionPostResponse) => {
@@ -388,7 +391,7 @@ export class ArkApiProvider {
 					}
 					observer.complete();
 				},
-				error => observer.error(error),
+				(error) => observer.error(error),
 			);
 		});
 	}
@@ -403,13 +406,59 @@ export class ArkApiProvider {
 		return this.client.getDelegateByPublicKey(publicKey);
 	}
 
+	public prepareFeesByType(
+		type: number,
+	): Observable<NodeFees & { isStatic: boolean }> {
+		return zip(this.fees, this.feeStatistics).pipe(
+			map(([respStatic, respDynamic]) => {
+				const feeNameMap = {
+					0: "send",
+					1: "secondsignature",
+					2: "delegate",
+					3: "vote",
+				};
+				const feeStatic = Number(respStatic[feeNameMap[type]]);
+
+				let max = feeStatic;
+				let avg = feeStatic;
+				let min = 1;
+				let isStatic = true;
+
+				const feeDynamic = respDynamic.find(
+					(item) => item.type === type,
+				);
+
+				if (feeDynamic) {
+					isStatic = feeDynamic.fees.avgFee > max;
+
+					if (!isStatic) {
+						if (feeDynamic.fees.maxFee > max) {
+							max = feeDynamic.fees.maxFee;
+						}
+
+						avg = feeDynamic.fees.avgFee;
+						min = feeDynamic.fees.minFee;
+					}
+				}
+
+				return {
+					type,
+					isStatic,
+					min,
+					avg,
+					max,
+				};
+			}),
+		);
+	}
+
 	private isSuccessfulResponse(response) {
 		const { data, errors } = response;
 		const anyDuplicate =
 			errors &&
-			Object.keys(errors).some(transactionId => {
+			Object.keys(errors).some((transactionId) => {
 				return errors[transactionId].some(
-					item => item.type === "ERR_DUPLICATE",
+					(item) => item.type === "ERR_DUPLICATE",
 				);
 			});
 
@@ -437,9 +486,9 @@ export class ArkApiProvider {
 			this.onUpdatePeer$.next(peer);
 		}
 		// Save in localStorage
-		this.userDataProvider.addOrUpdateNetwork(
+		this.userDataService.addOrUpdateNetwork(
 			this._network,
-			this.userDataProvider.currentProfile.networkId,
+			this.userDataService.currentProfile.networkId,
 		);
 		this._api = new arkts.Client(this._network);
 		this._client = new ArkClient(
@@ -448,7 +497,7 @@ export class ArkApiProvider {
 		);
 
 		this.fetchDelegates(this._network.activeDelegates * 2).subscribe(
-			data => {
+			(data) => {
 				this._delegates = data;
 			},
 		);
@@ -488,7 +537,7 @@ export class ArkApiProvider {
 			return EMPTY;
 		}
 
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			this.httpClient
 				.get(`${this._network.getPeerAPIUrl()}/api/v2/node/fees?days=7`)
 				.subscribe(
@@ -497,7 +546,7 @@ export class ArkApiProvider {
 						let feeStatistics: FeeStatistic[] = [];
 
 						if (Array.isArray(data)) {
-							feeStatistics = data.map(fee => ({
+							feeStatistics = data.map((fee) => ({
 								type: Number(fee.type),
 								fees: {
 									minFee: Number(fee.min),
@@ -534,47 +583,36 @@ export class ArkApiProvider {
 						this._network.feeStatistics = feeStatistics;
 						observer.next(this._network.feeStatistics);
 					},
-					e => observer.error(e),
+					(e) => observer.error(e),
 				);
 		});
 	}
 
 	private fetchFees(): Observable<arkts.Fees> {
-		return new Observable(observer => {
-			this.client.getTransactionFees().subscribe(
-				response => {
-					if (response && response.success) {
-						this._fees = response.fees;
-						this.storageProvider.set(
-							constants.STORAGE_FEES,
-							this._fees,
-						);
-
-						observer.next(this._fees);
-					}
-				},
-				() => {
-					observer.next(
-						// @ts-ignore
-						this.storageProvider.getObject(constants.STORAGE_FEES),
-					);
-				},
-			);
-		});
+		return this.client.getTransactionFees().pipe(
+			tap((response) => (this._fees = response.fees)),
+			switchMap(() =>
+				this.storageProvider.set(constants.STORAGE_FEES, this._fees),
+			),
+			map(() => this._fees),
+			catchError(() =>
+				this.storageProvider.getObject(constants.STORAGE_FEES),
+			),
+		);
 	}
 
 	private loadData() {
 		this.storageProvider
 			.getObject(constants.STORAGE_DELEGATES)
-			.subscribe(delegates => (this._delegates = delegates));
+			.subscribe((delegates) => (this._delegates = delegates));
 	}
 
 	private getNextWalletNonce(address: string): Observable<string> {
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			this._client.getWallet(address).subscribe(
 				(wallet: WalletResponse) => {
 					const nonce = wallet.nonce || 0;
-					const nextNonce = new BigNumber(nonce).plus(1).toString();
+					const nextNonce = BigNumber.make(nonce).plus(1).toString();
 					observer.next(nextNonce);
 				},
 				() => observer.next("1"),
@@ -584,7 +622,7 @@ export class ArkApiProvider {
 	}
 
 	private refreshPeers(): Observable<void> {
-		return new Observable(observer => {
+		return new Observable((observer) => {
 			const network = this._network;
 			const networkLookup = ["mainnet", "devnet"];
 			const isKnowNetwork = lodash.includes(networkLookup, network.name);
@@ -595,7 +633,7 @@ export class ArkApiProvider {
 				: `${peerUrl}/api/peers`;
 
 			this._peerDiscovery.find({ networkOrHost }).subscribe(
-				discovery => {
+				(discovery) => {
 					discovery.withLatency(300).sortBy("latency", "asc");
 
 					discovery
@@ -603,7 +641,7 @@ export class ArkApiProvider {
 							additional: ["height", "latency", "version"],
 						})
 						.pipe(
-							switchMap(peers => {
+							switchMap((peers) => {
 								if (!peers.length) {
 									return discovery.findPeersWithPlugin(
 										"core-wallet-api",
@@ -621,7 +659,7 @@ export class ArkApiProvider {
 							}),
 						)
 						.subscribe(
-							peers => {
+							(peers) => {
 								if (peers.length) {
 									this._network.peerList = peers;
 									observer.next();
@@ -631,10 +669,10 @@ export class ArkApiProvider {
 									);
 								}
 							},
-							e => observer.error(e),
+							(e) => observer.error(e),
 						);
 				},
-				e => observer.error(e),
+				(e) => observer.error(e),
 			);
 		});
 	}

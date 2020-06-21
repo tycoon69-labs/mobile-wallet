@@ -1,10 +1,10 @@
 import { Interfaces } from "@tycoon69-labs/crypto";
+import { BigNumber } from "@arkecosystem/platform-sdk-support";
 import { Transaction as TransactionModel, TransactionType } from "ark-ts/model";
 import moment from "moment";
 
 import { TRANSACTION_GROUPS, TRANSACTION_TYPES } from "@/app/app.constants";
 import { MarketCurrency, MarketHistory, MarketTicker } from "@/models/market";
-import { SafeBigNumber as BigNumber } from "@/utils/bignumber";
 
 import { ArkUtility } from "../utils/ark-utility";
 
@@ -99,15 +99,15 @@ export class Transaction extends TransactionModel {
 		}
 
 		this.date = new Date(this.timestamp * 1000);
-		this.amount = new BigNumber(input.amount).toNumber();
-		this.fee = new BigNumber(input.fee).toNumber();
+		this.amount = BigNumber.make(input.amount).toNumber();
+		this.fee = BigNumber.make(input.fee).toNumber();
 		this.typeGroup = input.typeGroup || 1;
 		delete self.network;
 		return self;
 	}
 
 	getAmount(forceFee?: boolean) {
-		let amount = new BigNumber(this.amount);
+		let amount = BigNumber.make(this.amount);
 
 		if (this.isSender() || forceFee) {
 			amount = amount.plus(this.fee);
@@ -151,9 +151,7 @@ export class Transaction extends TransactionModel {
 			if (!price) {
 				price = market.getPriceByDate(
 					marketCurrency.code,
-					moment(this.date)
-						.subtract(1, "d")
-						.toDate(),
+					moment(this.date).subtract(1, "d").toDate(),
 				);
 			}
 		}

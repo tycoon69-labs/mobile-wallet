@@ -1,6 +1,7 @@
 import { Component, NgZone, OnDestroy, OnInit, ViewChild } from "@angular/core";
 import { FormControl, FormGroup, Validators } from "@angular/forms";
 import { ActivatedRoute } from "@angular/router";
+import { BigNumber } from "@arkecosystem/platform-sdk-support";
 import {
 	IonRouterOutlet,
 	LoadingController,
@@ -10,14 +11,16 @@ import { TranslateService } from "@ngx-translate/core";
 import { TransactionSend, TransactionType } from "ark-ts";
 import { PublicKey } from "ark-ts/core";
 import { Subject } from "rxjs";
-import { takeUntil } from "rxjs/operators";
+import { switchMap, takeUntil, tap } from "rxjs/operators";
 
 import * as constants from "@/app/app.constants";
+import { AuthController } from "@/app/auth/shared/auth.controller";
+import { WalletsController } from "@/app/wallets/wallets.controller";
 import { ConfirmTransactionComponent } from "@/components/confirm-transaction/confirm-transaction";
-import { PinCodeComponent } from "@/components/pin-code/pin-code";
+import { InputCurrencyOutput } from "@/components/input-currency/input-currency.component";
 import { QRScannerComponent } from "@/components/qr-scanner/qr-scanner";
-import { WalletPickerModal } from "@/components/wallet-picker/wallet-picker.modal";
 import {
+	Contact,
 	QRCodeScheme,
 	StoredNetwork,
 	Wallet,
@@ -28,10 +31,10 @@ import { TruncateMiddlePipe } from "@/pipes/truncate-middle/truncate-middle";
 import { AddressCheckResult } from "@/services/address-checker/address-check-result";
 import { AddressCheckerProvider } from "@/services/address-checker/address-checker";
 import { ArkApiProvider } from "@/services/ark-api/ark-api";
+import { LoggerService } from "@/services/logger/logger.service";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 import { ArkUtility } from "@/utils/ark-utility";
-import { SafeBigNumber } from "@/utils/bignumber";
 
 class CombinedResult {
 	public checkerDone: boolean;
@@ -49,9 +52,6 @@ class CombinedResult {
 	providers: [TruncateMiddlePipe],
 })
 export class TransactionSendPage implements OnInit, OnDestroy {
-	@ViewChild("pinCode", { read: PinCodeComponent, static: true })
-	pinCode: PinCodeComponent;
-
 	@ViewChild("confirmTransaction", {
 		read: ConfirmTransactionComponent,
 		static: true,
@@ -65,16 +65,18 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 
 	currentWallet: Wallet;
 	currentNetwork: StoredNetwork;
+	nodeFees: any;
 	fee: number;
 	hasFeeError = false;
 	hasSent = false;
 	sendAllEnabled = false;
 	transactionType = TransactionType.SendArk;
 
+	public isWalletPickerModalOpen = false;
 	private unsubscriber$: Subject<void> = new Subject<void>();
 
 	constructor(
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private arkApiProvider: ArkApiProvider,
 		private toastProvider: ToastProvider,
 		private modalCtrl: ModalController,
@@ -84,9 +86,12 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 		private ngZone: NgZone,
 		private route: ActivatedRoute,
 		private routerOutlet: IonRouterOutlet,
+		private loggerService: LoggerService,
+		private authCtrl: AuthController,
+		private walletsCtrl: WalletsController,
 	) {
-		this.currentWallet = this.userDataProvider.currentWallet;
-		this.currentNetwork = this.userDataProvider.currentNetwork;
+		this.currentWallet = this.userDataService.currentWallet;
+		this.currentNetwork = this.userDataService.currentNetwork;
 	}
 
 	toggleSendAll() {
@@ -142,7 +147,7 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 					.get(
 						"TRANSACTIONS_PAGE.PERFORMING_DESTINATION_ADDRESS_CHECKS",
 					)
-					.subscribe(async translation => {
+					.subscribe(async (translation) => {
 						const loader = await this.loadingCtrl.create({
 							message: translation,
 						});
@@ -153,25 +158,24 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 							.checkAddress(
 								this.sendForm.get("recipientId").value,
 							)
-							.subscribe(checkerResult => {
+							.subscribe((checkerResult) => {
 								combinedResult.checkerDone = true;
 								combinedResult.checkerResult = checkerResult;
 								this.createTransactionAndShowConfirm(
 									combinedResult,
 								);
 							});
-						this.pinCode.open(
-							"PIN_CODE.TYPE_PIN_SIGN_TRANSACTION",
-							true,
-							true,
-							(keys: WalletKeys) => {
-								combinedResult.pinCodeDone = true;
-								combinedResult.keys = keys;
-								this.createTransactionAndShowConfirm(
-									combinedResult,
-								);
-							},
-						);
+						this.requestKeys()
+							.pipe(
+								tap((keys: WalletKeys) => {
+									combinedResult.pinCodeDone = true;
+									combinedResult.keys = keys;
+									this.createTransactionAndShowConfirm(
+										combinedResult,
+									);
+								}),
+							)
+							.subscribe();
 					});
 			});
 		}
@@ -181,39 +185,28 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 		this.hasSent = false;
 	}
 
-	public onPasteAddress(input: ClipboardEvent) {
-		const value = input.clipboardData.getData("text");
-		this.sendForm.patchValue({
-			recipientId: value,
-		});
-	}
-
 	scanQRCode() {
 		this.qrScanner.open(true);
 	}
 
-	async presetWalletPickerModal() {
-		const modal = await this.modalCtrl.create({
-			component: WalletPickerModal,
-			swipeToClose: true,
-			presentingElement: this.routerOutlet.nativeEl,
-			mode: "ios",
-			cssClass: "c-wallet-picker-modal",
+	onPickWallet(wallet: Contact) {
+		this.sendForm.patchValue({
+			recipientId: wallet.address,
 		});
+		this.closeWalletPickerModal();
+	}
 
-		modal.present();
+	toggleWalletPickerModal() {
+		this.isWalletPickerModalOpen = !this.isWalletPickerModalOpen;
+	}
 
-		modal.onDidDismiss().then(({ data }) => {
-			if (data) {
-				this.sendForm.patchValue({
-					recipientId: data.address,
-				});
-			}
-		});
+	closeWalletPickerModal() {
+		this.isWalletPickerModalOpen = false;
 	}
 
 	onScanQRCode(qrCode: QRCodeScheme) {
 		if (qrCode.address) {
+			this.sendForm.controls.recipientId.setValue(qrCode.address);
 			const amount = Number(qrCode.amount);
 			if (amount) {
 				this.sendForm.controls.amount.setValue(amount);
@@ -227,11 +220,15 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 	}
 
 	ngOnInit(): void {
+		this.arkApiProvider
+			.prepareFeesByType(TransactionType.SendArk)
+			.pipe(takeUntil(this.unsubscriber$))
+			.subscribe((data) => {
+				this.nodeFees = data;
+			});
+
 		this.hasNotSent();
 
-		this.pinCode.close.pipe(takeUntil(this.unsubscriber$)).subscribe(() => {
-			this.hasNotSent();
-		});
 		this.confirmTransaction.error
 			.pipe(takeUntil(this.unsubscriber$))
 			.subscribe(() => {
@@ -260,8 +257,8 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 		this.unsubscriber$.complete();
 	}
 
-	public onFeeChange(newFee: number) {
-		this.fee = newFee;
+	public onFeeChange(output: InputCurrencyOutput) {
+		this.fee = output.satoshi.toNumber();
 
 		if (this.sendAllEnabled) {
 			this.sendAll();
@@ -300,6 +297,22 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 		return isValid;
 	}
 
+	// TODO: Move this to a controller
+	private requestKeys() {
+		return this.authCtrl.request().pipe(
+			switchMap(({ password }) => {
+				const keys = this.userDataService.getKeysByWallet(
+					this.currentWallet,
+					password,
+				);
+				return this.walletsCtrl.requestSecondPassphrase(
+					this.currentWallet,
+					keys,
+				);
+			}),
+		);
+	}
+
 	private createTransactionAndShowConfirm(result: CombinedResult) {
 		if (!result.pinCodeDone) {
 			return;
@@ -312,20 +325,28 @@ export class TransactionSendPage implements OnInit, OnDestroy {
 
 		result.loader.dismiss();
 		const amount = this.sendForm.get("amount").value;
-		const data: TransactionSend = {
-			amount: new SafeBigNumber(amount)
+
+		const prepareData = {
+			amount: BigNumber.make(amount)
 				.times(constants.WALLET_UNIT_TO_SATOSHI)
 				.toNumber(),
 			vendorField: this.sendForm.get("vendorField").value,
-			passphrase: result.keys.key,
-			secondPassphrase: result.keys.secondKey,
 			recipientId: this.sendForm.get("recipientId").value,
 			fee: this.fee,
 		};
+
+		const data: TransactionSend = {
+			...prepareData,
+			passphrase: result.keys.key,
+			secondPassphrase: result.keys.secondKey,
+		};
+
+		this.loggerService.info(prepareData);
+
 		this.arkApiProvider.transactionBuilder
 			.createTransaction(data)
 			.subscribe(
-				transaction => {
+				(transaction) => {
 					// The transaction will be signed again;
 					this.confirmTransaction.open(
 						transaction,

@@ -8,16 +8,17 @@ import {
 } from "@ionic/angular";
 import { Delegate, TransactionVote, VoteType } from "ark-ts";
 import { Subject } from "rxjs";
-import { takeUntil, tap } from "rxjs/operators";
+import { switchMap, takeUntil, tap } from "rxjs/operators";
 
 import * as constants from "@/app/app.constants";
+import { AuthController } from "@/app/auth/shared/auth.controller";
+import { WalletsController } from "@/app/wallets/wallets.controller";
 import { ConfirmTransactionComponent } from "@/components/confirm-transaction/confirm-transaction";
-import { PinCodeComponent } from "@/components/pin-code/pin-code";
 import { Wallet, WalletKeys } from "@/models/model";
 import { StoredNetwork } from "@/models/stored-network";
 import { ArkApiProvider } from "@/services/ark-api/ark-api";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 import { DelegateDetailPage } from "./delegate-detail/delegate-detail";
 
@@ -29,9 +30,6 @@ import { DelegateDetailPage } from "./delegate-detail/delegate-detail";
 export class DelegatesPage implements OnDestroy {
 	@ViewChild("delegateSlider", { read: IonSlides })
 	slider: IonSlides;
-
-	@ViewChild("pinCode", { read: PinCodeComponent, static: true })
-	pinCode: PinCodeComponent;
 
 	@ViewChild("confirmTransaction", {
 		read: ConfirmTransactionComponent,
@@ -72,8 +70,10 @@ export class DelegatesPage implements OnDestroy {
 		private arkApiProvider: ArkApiProvider,
 		private zone: NgZone,
 		private modalCtrl: ModalController,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private toastProvider: ToastProvider,
+		private authCtrl: AuthController,
+		private walletsCtrl: WalletsController,
 	) {}
 
 	async openDetailModal(delegate: Delegate) {
@@ -94,7 +94,23 @@ export class DelegatesPage implements OnDestroy {
 
 			this.selectedFee = data.fee;
 			this.selectedDelegate = data.delegateVote; // Save the delegate that we want to vote for
-			this.pinCode.open("PIN_CODE.TYPE_PIN_SIGN_TRANSACTION", true, true);
+			this.authCtrl
+				.request()
+				.pipe(
+					switchMap(({ password }) => {
+						const keys = this.userDataService.getKeysByWallet(
+							this.currentWallet,
+							password,
+						);
+						return this.walletsCtrl.requestSecondPassphrase(
+							this.currentWallet,
+							keys,
+						);
+					}),
+					tap((keys) => this.generateTransaction(keys)),
+					takeUntil(this.unsubscriber$),
+				)
+				.subscribe();
 		});
 
 		await modal.present();
@@ -111,7 +127,7 @@ export class DelegatesPage implements OnDestroy {
 	}
 
 	onSlideChanged() {
-		this.slider.getActiveIndex().then(index => {
+		this.slider.getActiveIndex().then((index) => {
 			this.rankStatus = this.slides[index];
 		});
 	}
@@ -158,7 +174,7 @@ export class DelegatesPage implements OnDestroy {
 
 		this.arkApiProvider.transactionBuilder
 			.createVote(data)
-			.subscribe(transaction => {
+			.subscribe((transaction) => {
 				this.confirmTransaction.open(transaction, keys, null, {
 					username: this.selectedDelegate.username,
 				});
@@ -167,9 +183,9 @@ export class DelegatesPage implements OnDestroy {
 
 	ionViewDidEnter() {
 		this.currentNetwork = this.arkApiProvider.network;
-		this.currentWallet = this.userDataProvider.currentWallet;
+		this.currentWallet = this.userDataService.currentWallet;
 		this.zone.runOutsideAngular(() => {
-			this.arkApiProvider.delegates.subscribe(data =>
+			this.arkApiProvider.delegates.subscribe((data) =>
 				this.zone.run(() => {
 					this.delegates = data;
 					this.activeDelegates = this.delegates.slice(
@@ -211,7 +227,7 @@ export class DelegatesPage implements OnDestroy {
 			.getWalletVotes(this.currentWallet.address)
 			.pipe(takeUntil(this.unsubscriber$))
 			.subscribe(
-				data => {
+				(data) => {
 					if (data.success && data.delegates.length > 0) {
 						this.walletVote = data.delegates[0];
 					}
@@ -226,7 +242,7 @@ export class DelegatesPage implements OnDestroy {
 		this.arkApiProvider.onUpdateDelegates$
 			.pipe(
 				takeUntil(this.unsubscriber$),
-				tap(delegates => {
+				tap((delegates) => {
 					this.zone.run(() => (this.delegates = delegates));
 				}),
 			)

@@ -28,19 +28,21 @@ import {
 	Platform,
 } from "@ionic/angular";
 import { TranslateService } from "@ngx-translate/core";
+import { Select } from "@ngxs/store";
 import moment from "moment";
-import { Subject } from "rxjs";
-import { debounceTime, takeUntil } from "rxjs/operators";
+import { Observable, Subject } from "rxjs";
+import { debounceTime, switchMap, takeUntil } from "rxjs/operators";
 
 import * as constants from "@/app/app.constants";
 import { Wallet } from "@/models/model";
 import { AuthProvider } from "@/services/auth/auth";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 import { ArkApiProvider } from "./services/ark-api/ark-api";
 import { EventBusProvider } from "./services/event-bus/event-bus";
-import { SettingsDataProvider } from "./services/settings-data/settings-data";
+import { LoggerService } from "./services/logger/logger.service";
+import { SettingsState } from "./settings/shared/settings.state";
 
 @Component({
 	selector: "app-root",
@@ -48,6 +50,12 @@ import { SettingsDataProvider } from "./services/settings-data/settings-data";
 	styleUrls: ["app.component.scss"],
 })
 export class AppComponent implements OnDestroy, OnInit {
+	@Select(SettingsState.language)
+	public language$: Observable<string>;
+
+	@Select(SettingsState.darkMode)
+	public darkMode$: Observable<boolean>;
+
 	@ViewChildren(IonRouterOutlet)
 	routerOutlets: QueryList<IonRouterOutlet>;
 
@@ -73,9 +81,8 @@ export class AppComponent implements OnDestroy, OnInit {
 		private toastProvider: ToastProvider,
 		private authProvider: AuthProvider,
 		private menuCtrl: MenuController,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private arkApiProvider: ArkApiProvider,
-		private settingsDataProvider: SettingsDataProvider,
 		public element: ElementRef,
 		private renderer: Renderer2,
 		private eventBus: EventBusProvider,
@@ -86,34 +93,27 @@ export class AppComponent implements OnDestroy, OnInit {
 		private alertCtrl: AlertController,
 		private config: Config,
 		private keyboard: Keyboard,
+		private loggerService: LoggerService,
 	) {
 		this.initializeApp();
 	}
 
 	initializeApp() {
 		this.platform.ready().then(() => {
+			this.loggerService.info("App is ready");
 			this.initTranslation();
 			this.initConfig();
 			this.initTheme();
 			this.initSessionCheck();
 			this.initBackButton();
 			this.splashScreen.hide();
-
-			this.authProvider.hasSeenIntro().subscribe(hasSeenIntro => {
-				if (!hasSeenIntro) {
-					this.openPage("/intro", true);
-					return;
-				}
-
-				this.openPage("/login", true);
-			});
 		});
 	}
 
 	initTranslation() {
 		this.translateService.setDefaultLang("en");
-		this.settingsDataProvider.settings.subscribe(settings => {
-			this.translateService.use(settings.language);
+		this.language$.subscribe((language) => {
+			this.translateService.use(language);
 
 			this.translateService
 				.get([
@@ -121,7 +121,7 @@ export class AppComponent implements OnDestroy, OnInit {
 					"EXIT_APP_TEXT",
 					"SIGN_OUT_PROFILE_TEXT",
 				])
-				.subscribe(translations => {
+				.subscribe((translations) => {
 					// this.config.set('backButtonText', translations['BACK_BUTTON_TEXT']);
 					this.exitText = translations.EXIT_APP_TEXT;
 					this.signOutText = translations.SIGN_OUT_PROFILE_TEXT;
@@ -181,7 +181,7 @@ export class AppComponent implements OnDestroy, OnInit {
 					if (outlet && outlet.canGoBack()) {
 						outlet.pop();
 					} else {
-						if (path === "/login" || path === "/intro") {
+						if (path === "/login" || path === "/onboarding") {
 							this.showConfirmation(this.exitText).then(() => {
 								// tslint:disable-next-line: no-string-literal
 								navigator["app"].exitApp();
@@ -190,6 +190,8 @@ export class AppComponent implements OnDestroy, OnInit {
 							this.showConfirmation(this.signOutText).then(() => {
 								this.logout();
 							});
+						} else if (path.startsWith("/wallets/dashboard")) {
+							this.navController.navigateRoot("/wallets");
 						}
 					}
 				});
@@ -198,8 +200,8 @@ export class AppComponent implements OnDestroy, OnInit {
 	}
 
 	initTheme() {
-		this.settingsDataProvider.settings.subscribe(settings => {
-			if (settings.darkMode) {
+		this.darkMode$.subscribe((darkMode) => {
+			if (darkMode) {
 				this.renderer.addClass(
 					this.element.nativeElement.parentNode,
 					"dark-theme",
@@ -260,7 +262,7 @@ export class AppComponent implements OnDestroy, OnInit {
 
 		this.menuCtrl.enable(false, this.menuId);
 
-		this.eventBus.$subject.subscribe(event => {
+		this.eventBus.$subject.subscribe((event) => {
 			switch (event.key) {
 				case "qrScanner:show":
 					this.hideRouter = true;
@@ -291,11 +293,6 @@ export class AppComponent implements OnDestroy, OnInit {
 		this.verifyNetwork();
 
 		this.onCreateWallet();
-
-		this.settingsDataProvider.onUpdate$.subscribe(() => {
-			this.initTranslation();
-			this.initTheme();
-		});
 	}
 
 	ngOnDestroy() {
@@ -305,10 +302,10 @@ export class AppComponent implements OnDestroy, OnInit {
 	}
 
 	private showConfirmation(title: string): Promise<void> {
-		return new Promise(resolve => {
+		return new Promise((resolve) => {
 			this.translateService
 				.get(["NO", "YES"])
-				.subscribe(async translation => {
+				.subscribe(async (translation) => {
 					const alert = await this.alertCtrl.create({
 						subHeader: title,
 						buttons: [
@@ -330,17 +327,20 @@ export class AppComponent implements OnDestroy, OnInit {
 
 	// Verify if new wallet is a delegate
 	private onCreateWallet() {
-		return this.userDataProvider.onCreateWallet$
+		return this.userDataService.onCreateWallet$
 			.pipe(takeUntil(this.unsubscriber$), debounceTime(500))
 			.subscribe((wallet: Wallet) => {
 				this.arkApiProvider
 					.getDelegateByPublicKey(wallet.publicKey)
-					.subscribe(delegate =>
-						this.userDataProvider.ensureWalletDelegateProperties(
-							wallet,
-							delegate,
+					.pipe(
+						switchMap((delegate) =>
+							this.userDataService.ensureWalletDelegateProperties(
+								wallet,
+								delegate,
+							),
 						),
-					);
+					)
+					.subscribe();
 			});
 	}
 
@@ -349,8 +349,8 @@ export class AppComponent implements OnDestroy, OnInit {
 		this.authProvider.onLogin$
 			.pipe(takeUntil(this.unsubscriber$))
 			.subscribe(() => {
-				this.profile = this.userDataProvider.currentProfile;
-				this.network = this.userDataProvider.currentNetwork;
+				this.profile = this.userDataService.currentProfile;
+				this.network = this.userDataService.currentNetwork;
 
 				return this.menuCtrl.enable(true, this.menuId);
 			});
@@ -360,7 +360,7 @@ export class AppComponent implements OnDestroy, OnInit {
 		this.authProvider.onLogout$
 			.pipe(takeUntil(this.unsubscriber$))
 			.subscribe(() => {
-				this.userDataProvider.clearCurrentWallet();
+				this.userDataService.clearCurrentWallet();
 
 				this.menuCtrl.enable(false, this.menuId);
 				return this.openPage("/login");

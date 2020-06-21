@@ -8,7 +8,7 @@ import { StoredNetwork, Wallet } from "@/models/model";
 import { TransactionEntity } from "@/models/transaction";
 import { TruncateMiddlePipe } from "@/pipes/truncate-middle/truncate-middle";
 import { ContactsProvider } from "@/services/contacts/contacts";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "page-transaction-show",
@@ -28,15 +28,15 @@ export class TransactionShowPage {
 	constructor(
 		private navCtrl: NavController,
 		private route: ActivatedRoute,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private contactsProvider: ContactsProvider,
 		private inAppBrowser: InAppBrowser,
 		private actionSheetCtrl: ActionSheetController,
 		private translateService: TranslateService,
 		private truncateMiddlePipe: TruncateMiddlePipe,
 	) {
-		this.currentNetwork = this.userDataProvider.currentNetwork;
-		this.currentWallet = this.userDataProvider.currentWallet;
+		this.currentNetwork = this.userDataService.currentNetwork;
+		this.currentWallet = this.userDataService.currentWallet;
 
 		const transaction = this.route.snapshot.queryParamMap.get(
 			"transaction",
@@ -80,7 +80,7 @@ export class TransactionShowPage {
 				],
 				{ address: contactOrAddress, token: this.currentNetwork.token },
 			)
-			.subscribe(async translation => {
+			.subscribe(async (translation) => {
 				const buttons = [];
 
 				if (!contact) {

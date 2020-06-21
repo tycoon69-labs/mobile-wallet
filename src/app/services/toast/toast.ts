@@ -60,14 +60,6 @@ export class ToastProvider {
 		this.show(message, this.typeEnum.LOG, hideDelay, position);
 	}
 
-	debug(
-		message: string | TranslatableObject,
-		hideDelay?: number,
-		position?: string,
-	): void {
-		this.show(message, this.typeEnum.DEBUG, hideDelay, position);
-	}
-
 	show(
 		messageOrObj: string | TranslatableObject,
 		type?: number,
@@ -86,7 +78,7 @@ export class ToastProvider {
 		}
 		this.translateService
 			.get(message, parameters)
-			.subscribe(async translation => {
+			.subscribe(async (translation) => {
 				const toast = await this.toastCtrl.create({
 					message: translation,
 					duration: hideDelay || this.hideDelay,

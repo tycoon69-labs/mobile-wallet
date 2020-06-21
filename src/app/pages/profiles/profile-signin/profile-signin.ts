@@ -1,4 +1,4 @@
-import { Component, OnDestroy, ViewChild } from "@angular/core";
+import { Component, OnDestroy } from "@angular/core";
 import {
 	ActionSheetController,
 	AlertController,
@@ -12,11 +12,11 @@ import lodash from "lodash";
 import { Subject } from "rxjs";
 import { takeUntil } from "rxjs/operators";
 
-import { PinCodeComponent } from "@/components/pin-code/pin-code";
+import { AuthController } from "@/app/auth/shared/auth.controller";
 import { AddressMap } from "@/models/model";
 import { AuthProvider } from "@/services/auth/auth";
 import { ToastProvider } from "@/services/toast/toast";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Component({
 	selector: "page-profile-signin",
@@ -24,9 +24,6 @@ import { UserDataProvider } from "@/services/user-data/user-data";
 	styleUrls: ["profile-signin.scss"],
 })
 export class ProfileSigninPage implements OnDestroy {
-	@ViewChild("pinCode", { read: PinCodeComponent, static: true })
-	pinCode: PinCodeComponent;
-
 	public profiles;
 	public addresses: AddressMap[];
 	public networks;
@@ -37,18 +34,19 @@ export class ProfileSigninPage implements OnDestroy {
 	constructor(
 		public platform: Platform,
 		public navCtrl: NavController,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 		private translateService: TranslateService,
 		private authProvider: AuthProvider,
 		private toastProvider: ToastProvider,
 		private alertCtrl: AlertController,
 		private actionSheetCtrl: ActionSheetController,
+		private authCtrl: AuthController,
 	) {}
 
 	presentProfileActionSheet(profileId: string) {
 		this.translateService
 			.get(["EDIT", "DELETE"])
-			.subscribe(async translation => {
+			.subscribe(async (translation) => {
 				const buttons = [
 					{
 						text: translation.DELETE,
@@ -78,7 +76,7 @@ export class ProfileSigninPage implements OnDestroy {
 	showDeleteConfirm(profileId: string) {
 		this.translateService
 			.get(["ARE_YOU_SURE", "CONFIRM", "CANCEL"])
-			.subscribe(async translation => {
+			.subscribe(async (translation) => {
 				const confirm = await this.alertCtrl.create({
 					header: translation.ARE_YOU_SURE,
 					buttons: [
@@ -98,7 +96,7 @@ export class ProfileSigninPage implements OnDestroy {
 	}
 
 	delete(profileId: string) {
-		return this.userDataProvider
+		return this.userDataService
 			.removeProfileById(profileId)
 			.pipe(takeUntil(this.unsubscriber$))
 			.subscribe(() => {
@@ -108,7 +106,13 @@ export class ProfileSigninPage implements OnDestroy {
 
 	verify(profileId: string) {
 		this.profileIdSelected = profileId;
-		this.pinCode.open("PIN_CODE.DEFAULT_MESSAGE", false);
+		this.authCtrl
+			.request()
+			.pipe(takeUntil(this.unsubscriber$))
+			.subscribe({
+				next: () => this.signin(),
+				error: () => this.error(),
+			});
 	}
 
 	signin() {
@@ -119,7 +123,7 @@ export class ProfileSigninPage implements OnDestroy {
 		this.authProvider
 			.login(this.profileIdSelected)
 			.pipe(takeUntil(this.unsubscriber$))
-			.subscribe(status => {
+			.subscribe((status) => {
 				if (status) {
 					this.navCtrl.navigateRoot("/wallets");
 				} else {
@@ -133,11 +137,11 @@ export class ProfileSigninPage implements OnDestroy {
 	}
 
 	load() {
-		this.profiles = this.userDataProvider.profiles;
-		this.networks = this.userDataProvider.networks;
+		this.profiles = this.userDataService.profiles;
+		this.networks = this.userDataService.networks;
 
 		this.addresses = lodash(this.profiles)
-			.mapValues(o => [o.name, o.networkId])
+			.mapValues((o) => [o.name, o.networkId])
 			.transform((result, data, id) => {
 				const network = this.networks[data[1]];
 				if (!network) {

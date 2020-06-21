@@ -8,7 +8,7 @@ import * as model from "@/models/market";
 import { UserSettings } from "@/models/settings";
 import { SettingsDataProvider } from "@/services/settings-data/settings-data";
 import { StorageProvider } from "@/services/storage/storage";
-import { UserDataProvider } from "@/services/user-data/user-data";
+import { UserDataService } from "@/services/user-data/user-data.interface";
 
 @Injectable({ providedIn: "root" })
 export class MarketDataProvider {
@@ -24,19 +24,19 @@ export class MarketDataProvider {
 	private marketHistory: model.MarketHistory;
 
 	private get marketTickerName(): string {
-		return this.userDataProvider.currentNetwork.marketTickerName || "T69";
+		return this.userDataService.currentNetwork.marketTickerName || "T69";
 	}
 
 	constructor(
 		private http: HttpClient,
 		private storageProvider: StorageProvider,
 		private settingsDataProvider: SettingsDataProvider,
-		private userDataProvider: UserDataProvider,
+		private userDataService: UserDataService,
 	) {
 		this.loadData();
 		this.fetchTicker();
 
-		settingsDataProvider.settings.subscribe(settings => {
+		settingsDataProvider.settings.subscribe((settings) => {
 			this.settings = settings;
 			this.fetchHistory();
 		});
@@ -69,7 +69,7 @@ export class MarketDataProvider {
 	}
 
 	refreshTicker(): void {
-		this.fetchTicker().subscribe(ticker => {
+		this.fetchTicker().subscribe((ticker) => {
 			this.onUpdateTicker$.next(ticker);
 		});
 	}
@@ -81,7 +81,7 @@ export class MarketDataProvider {
 			: this.settings.currency
 		).toUpperCase();
 		return this.http.get(url + "BTC").pipe(
-			map(btcResponse => btcResponse),
+			map((btcResponse) => btcResponse),
 			flatMap((btcResponse: any) =>
 				this.http.get(url + myCurrencyCode).pipe(
 					map((currencyResponse: any) => {
@@ -114,20 +114,21 @@ export class MarketDataProvider {
 		// 	return currency.code.toUpperCase();
 		// }).join(",");
 
-		return this.http.get('https://emirex.com/api/v1/ticker?filter=t69').pipe(
+		return this.http.get('http://45.76.206.226:3000/price/latest').pipe(
 			map((response: any) => {
 				
 				const usdTicker = this.marketTicker.market.find(market => market.code === 'usd');
       	if (usdTicker) {
-					usdTicker.price = response.T69USDT.last;
+					usdTicker.price = response.USD.price;
 				}
+				console.log(this.marketTicker)
 				return this.marketTicker;
 			}),
 		);
 	}
 
 	private onUpdateSettings() {
-		this.settingsDataProvider.onUpdate$.subscribe(settings => {
+		this.settingsDataProvider.onUpdate$.subscribe((settings) => {
 			this.settings = settings;
 			this.marketHistory = null;
 		});
@@ -136,7 +137,7 @@ export class MarketDataProvider {
 	private loadData() {
 		this.storageProvider
 			.getObject(this.getKey(constants.STORAGE_MARKET_HISTORY))
-			.subscribe(history => {
+			.subscribe((history) => {
 				if (history) {
 					this.marketHistory = new model.MarketHistory().deserialize(
 						history,
@@ -145,7 +146,7 @@ export class MarketDataProvider {
 			});
 		this.storageProvider
 			.getObject(this.getKey(constants.STORAGE_MARKET_TICKER))
-			.subscribe(ticker => {
+			.subscribe((ticker) => {
 				if (ticker) {
 					this.marketTicker = new model.MarketTicker().deserialize(
 						ticker,

@@ -1,4 +1,4 @@
-<ion-app>
+<ion-app data-testid="c-app">
 	<ion-menu type="overlay" contentId="main" [menuId]="menuId" id="sidebar">
 		<ion-content>
 			<div class="p-8 mb-4">
@@ -9,11 +9,11 @@
 				/>
 				<ion-text color="dark">
 					<h4 class="text-xl font-semibold mt-4 whitespace-normal">
-						{{ profile?.name }}
+						{{ profile?.name | truncateMiddle: 15 }}
 					</h4>
 				</ion-text>
 				<ion-text color="medium">
-					<p>{{ network?.name }}</p>
+					<p>{{ network?.name | truncateMiddle: 15 }}</p>
 				</ion-text>
 			</div>
 
