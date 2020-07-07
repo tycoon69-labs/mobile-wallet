@@ -269,9 +269,9 @@
     "@arkecosystem/platform-sdk-cryptocompare" "0.9.32"
 
 "@arkecosystem/platform-sdk-support@^0.9.63":
-  version "0.9.110"
-  resolved "https://registry.yarnpkg.com/@arkecosystem/platform-sdk-support/-/platform-sdk-support-0.9.110.tgz#6a21d91a2bd5ad978ad34d5ba419493de2c6028e"
-  integrity sha512-q0W6Q2RiMC9PuRMDGqv6l3gfZqYJOalp9TkT4EpjHVLJ+ugojLSM8FpiA9EG6D1jymRHtwsZGOUMzrYn9O0mEg==
+  version "0.9.115"
+  resolved "https://registry.yarnpkg.com/@arkecosystem/platform-sdk-support/-/platform-sdk-support-0.9.115.tgz#4e0c57c6fe67e2b2dff569d945f5dfd3297ee81d"
+  integrity sha512-ZfyZY/ay//EPz06wlvc371ZzaNg+6I2lE7tv5WmAFVo3O34qNIF0Ljjql1PNfddLZ6Gr/MnIxNSG11adK9cRJg==
   dependencies:
     bad-words "^3.0.3"
     bignumber.js "^9.0.0"
@@ -3838,9 +3838,9 @@ autoprefixer@9.7.4:
     postcss-value-parser "^4.0.2"
 
 autoprefixer@^9.4.5, autoprefixer@^9.7.2:
-  version "9.8.1"
-  resolved "https://registry.yarnpkg.com/autoprefixer/-/autoprefixer-9.8.1.tgz#09ebdf209ddeb6900b310c71219f367138950ddd"
-  integrity sha512-zDw9+mkCdWZHloBIGrOgMq1tTUed4qy6ZgNAe2Ze2xERZA7CyTgW5Bw3XZbwSeJe8lfDHZIkw8Hwd/6hI3p0NQ==
+  version "9.8.2"
+  resolved "https://registry.yarnpkg.com/autoprefixer/-/autoprefixer-9.8.2.tgz#7347396ee576b18687041bfbacd76d78e27baa56"
+  integrity sha512-9UwMMU8Rg7Fj0c55mbOpXrr/2WrRqoOwOlLNTyyYt+nhiyQdIBWipp5XWzt+Lge8r3DK5y+EHMc1OBf8VpZA6Q==
   dependencies:
     browserslist "^4.12.0"
     caniuse-lite "^1.0.30001084"
@@ -4872,9 +4872,9 @@ caniuse-api@^3.0.0:
     lodash.uniq "^4.5.0"
 
 caniuse-lite@^1.0.0, caniuse-lite@^1.0.30000989, caniuse-lite@^1.0.30001020, caniuse-lite@^1.0.30001032, caniuse-lite@^1.0.30001043, caniuse-lite@^1.0.30001084:
-  version "1.0.30001084"
-  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001084.tgz#00e471931eaefbeef54f46aa2203914d3c165669"
-  integrity sha512-ftdc5oGmhEbLUuMZ/Qp3mOpzfZLCxPYKcvGv6v2dJJ+8EdqcvZRbAGOiLmkM/PV1QGta/uwBs8/nCl6sokDW6w==
+  version "1.0.30001085"
+  resolved "https://registry.yarnpkg.com/caniuse-lite/-/caniuse-lite-1.0.30001085.tgz#bed28bd51ff7425d33ee23e730c7f3b703711db6"
+  integrity sha512-x0YRFRE0pmOD90z+9Xk7jwO58p4feVNXP+U8kWV+Uo/HADyrgESlepzIkUqPgaXkpyceZU6siM1gsK7sHgplqA==
 
 canonical-path@1.0.0:
   version "1.0.0"
